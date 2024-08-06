@@ -1,6 +1,8 @@
 import { createAnimations } from './animations.js'
+import { checkControls } from './controls.js'
 
 const config = {
+  autoFocus: false,
   type: Phaser.AUTO,
   width: 256,
   height: 244,
@@ -20,16 +22,16 @@ const config = {
   }
 }
 
-//const screenWidth = window.innerWidth
-//const screenHeight = window.innerHeight * 1.1
-//const worldWidth = screenWidth * 11
-//const platformHeight = screenHeight / 5
-//var isLevelOverworld
+// const screenWidth = window.innerWidth
+// const screenHeight = window.innerHeight * 1.1
+// const worldWidth = screenWidth * 11
+// const platformHeight = screenHeight / 5
+// var isLevelOverworld
 
 new Phaser.Game(config)
 
 function preload() {
-  //isLevelOverworld = Phaser.Math.Between(0, 100) <= 84
+  // isLevelOverworld = Phaser.Math.Between(0, 100) <= 84
 
   // Load props
   this.load.image('cloud1', 'assets/scenery/overworld/cloud1.png')
@@ -50,12 +52,17 @@ function preload() {
     frameHeight: 16
   })
 
+  this.load.spritesheet('goomba', 'assets/entities/overworld/goomba.png', {
+    frameWidth: 16,
+    frameHeight: 16
+  })
+
   this.load.audio('gameover', 'assets/sound/music/gameover.mp3')
 }
 
 function create() {
   this.add.image(100, 50, 'cloud1').setOrigin(0, 0).setScale(0.15)
-  //drawWorld.call(this)
+  // drawWorld.call(this)
   this.floor = this.physics.add.staticGroup()
   this.floor
     .create(0, config.height - 16, 'floorbricks')
@@ -73,17 +80,37 @@ function create() {
     .setCollideWorldBounds(true)
     .setGravityY(500)
 
+  this.enemy = this.physics.add
+    .sprite(120, config.height - 30, 'goomba')
+    .setOrigin(0, 1)
+    .setVelocityX(-50)
+    .setGravityY(500)
+
   this.physics.world.setBounds(0, 0, 2000, config.height)
   this.physics.add.collider(this.mario, this.floor)
+  this.physics.add.collider(this.enemy, this.floor)
+  this.physics.add.collider(this.mario, this.enemy, onHitEnemy)
 
   this.cameras.main.setBounds(0, 0, 2000, config.height)
   this.cameras.main.startFollow(this.mario)
 
   createAnimations(this)
 
+  this.enemy.anims.play('goomba-walk', true)
   this.keys = this.input.keyboard.createCursorKeys()
 }
 
+function onHitEnemy(mario, enemy) {
+  if (mario.body.touching.down && enemy.body.touching.up) {
+    enemy.anims.play('goomba-hurt', true)
+    enemy.setVelocityX(0)
+    mario.setVelocityY(-200)
+    setTimeout(() => {
+      enemy.destroy()
+    }, 500)
+  } else {
+  }
+}
 // function drawWorld() {
 //   //Drawing scenery props
 
@@ -213,35 +240,21 @@ function create() {
 // }
 
 function update() {
-  if (this.mario.isDead) return
-  if (this.keys.left.isDown) {
-    this.mario.anims.play('mario-walk', true)
-    this.mario.x -= 2
-    this.mario.flipX = true
-  } else if (this.keys.right.isDown) {
-    this.mario.anims.play('mario-walk', true)
-    this.mario.x += 2
-    this.mario.flipX = false
-  } else {
-    this.mario.anims.play('mario-idle', true)
-  }
+  checkControls(this)
 
-  if (this.keys.up.isDown && this.mario.body.touching.down) {
-    this.mario.setVelocityY(-300)
-    this.mario.anims.play('mario-jump', true)
-  }
+  const { scene, mario, sound } = this
 
-  if (this.mario.y >= config.height) {
-    this.mario.isDead = true
-    this.mario.anims.play('mario-dead')
-    this.mario.setCollideWorldBounds(false)
-    this.sound.add('gameover', { volume: 0.2 }).play()
+  if (mario.y >= config.height) {
+    mario.isDead = true
+    mario.anims.play('mario-dead')
+    mario.setCollideWorldBounds(false)
+    sound.add('gameover', { volume: 0.2 }).play()
 
     setTimeout(() => {
-      this.mario.setVelocityY(-350)
+      mario.setVelocityY(-350)
     }, 100)
     setTimeout(() => {
-      this.scene.restart()
+      scene.restart()
     }, 2000)
   }
 }
