@@ -1,4 +1,5 @@
 import { createAnimations } from './animations.js'
+import { initAudio, playAudio } from './audio.js'
 import { checkControls } from './controls.js'
 
 const config = {
@@ -57,7 +58,8 @@ function preload() {
     frameHeight: 16
   })
 
-  this.load.audio('gameover', 'assets/sound/music/gameover.mp3')
+  // ---- audios -------
+  initAudio(this)
 }
 
 function create() {
@@ -89,7 +91,7 @@ function create() {
   this.physics.world.setBounds(0, 0, 2000, config.height)
   this.physics.add.collider(this.mario, this.floor)
   this.physics.add.collider(this.enemy, this.floor)
-  this.physics.add.collider(this.mario, this.enemy, onHitEnemy)
+  this.physics.add.collider(this.mario, this.enemy, onHitEnemy, null, this)
 
   this.cameras.main.setBounds(0, 0, 2000, config.height)
   this.cameras.main.startFollow(this.mario)
@@ -105,156 +107,40 @@ function onHitEnemy(mario, enemy) {
     enemy.anims.play('goomba-hurt', true)
     enemy.setVelocityX(0)
     mario.setVelocityY(-200)
+    playAudio('goomba-stomp', this)
     setTimeout(() => {
       enemy.destroy()
     }, 500)
   } else {
+    killMario(this)
   }
 }
-// function drawWorld() {
-//   //Drawing scenery props
-
-//   //> Drawing the Sky
-//   this.add
-//     .rectangle(
-//       screenWidth,
-//       0,
-//       worldWidth,
-//       screenHeight,
-//       isLevelOverworld ? 0x8585ff : 0x000000
-//     )
-//     .setOrigin(0).depth = -1
-
-//   let propsY = screenHeight - platformHeight
-
-//   if (isLevelOverworld) {
-//     //> Clouds
-//     for (
-//       var i = 0;
-//       i <
-//       Phaser.Math.Between(
-//         Math.trunc(worldWidth / 760),
-//         Math.trunc(worldWidth / 380)
-//       );
-//       i++
-//     ) {
-//       let x = generateRandomCoordinate(false, false)
-//       let y = Phaser.Math.Between(screenHeight / 80, screenHeight / 2.2)
-//       if (Phaser.Math.Between(0, 10) < 5) {
-//         this.add
-//           .image(x, y, 'cloud1')
-//           .setOrigin(0)
-//           .setScale(screenHeight / 1725)
-//       } else {
-//         this.add
-//           .image(x, y, 'cloud2')
-//           .setOrigin(0)
-//           .setScale(screenHeight / 1725)
-//       }
-//     }
-
-//     //> Mountains
-//     for (
-//       var i = 0;
-//       i < Phaser.Math.Between(worldWidth / 6400, worldWidth / 3800);
-//       i++
-//     ) {
-//       let x = generateRandomCoordinate()
-
-//       if (Phaser.Math.Between(0, 10) < 5) {
-//         this.add
-//           .image(x, propsY, 'mountain1')
-//           .setOrigin(0, 1)
-//           .setScale(screenHeight / 517)
-//       } else {
-//         this.add
-//           .image(x, propsY, 'mountain2')
-//           .setOrigin(0, 1)
-//           .setScale(screenHeight / 517)
-//       }
-//     }
-
-//     //> Bushes
-//     for (
-//       var i = 0;
-//       i <
-//       Phaser.Math.Between(
-//         Math.trunc(worldWidth / 960),
-//         Math.trunc(worldWidth / 760)
-//       );
-//       i++
-//     ) {
-//       let x = generateRandomCoordinate()
-
-//       if (Phaser.Math.Between(0, 10) < 5) {
-//         this.add
-//           .image(x, propsY, 'bush1')
-//           .setOrigin(0, 1)
-//           .setScale(screenHeight / 609)
-//       } else {
-//         this.add
-//           .image(x, propsY, 'bush2')
-//           .setOrigin(0, 1)
-//           .setScale(screenHeight / 609)
-//       }
-//     }
-
-//     //> Fences
-//     for (
-//       var i = 0;
-//       i <
-//       Phaser.Math.Between(
-//         Math.trunc(worldWidth / 4000),
-//         Math.trunc(worldWidth / 2000)
-//       );
-//       i++
-//     ) {
-//       let x = generateRandomCoordinate()
-
-//       this.add
-//         .tileSprite(x, propsY, Phaser.Math.Between(100, 250), 35, 'fence')
-//         .setOrigin(0, 1)
-//         .setScale(screenHeight / 863)
-//     }
-//   }
-// }
-
-// function generateRandomCoordinate(entitie = false, ground = true) {
-//   const startPos = entitie ? screenWidth * 1.5 : screenWidth
-//   const endPos = entitie ? worldWidth - screenWidth * 3 : worldWidth
-
-//   let coordinate = Phaser.Math.Between(startPos, endPos)
-
-//   if (!ground) return coordinate
-
-//   for (let hole of worldHolesCoords) {
-//     if (
-//       coordinate >= hole.start - platformPiecesWidth * 1.5 &&
-//       coordinate <= hole.end
-//     ) {
-//       return generateRandomCoordinate.call(this, entitie, ground)
-//     }
-//   }
-
-//   return coordinate
-// }
 
 function update() {
   checkControls(this)
 
-  const { scene, mario, sound } = this
+  const { mario } = this
 
   if (mario.y >= config.height) {
-    mario.isDead = true
-    mario.anims.play('mario-dead')
-    mario.setCollideWorldBounds(false)
-    sound.add('gameover', { volume: 0.2 }).play()
-
-    setTimeout(() => {
-      mario.setVelocityY(-350)
-    }, 100)
-    setTimeout(() => {
-      scene.restart()
-    }, 2000)
+    killMario(this)
   }
+}
+
+function killMario(game) {
+  const { mario, scene } = game
+  if (mario.isDead) return
+  mario.isDead = true
+  mario.anims.play('mario-dead')
+  mario.setCollideWorldBounds(false)
+
+  playAudio('gameover', game, { volume: 0.2 })
+
+  mario.body.checkCollision.none = true
+  mario.setVelocityX(0)
+  setTimeout(() => {
+    mario.setVelocityY(-300)
+  }, 100)
+  setTimeout(() => {
+    scene.restart()
+  }, 2000)
 }
